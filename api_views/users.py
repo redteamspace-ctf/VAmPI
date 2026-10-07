@@ -1,4 +1,8 @@
 import re
+import threading
+import time
+from collections import defaultdict, deque
+
 import jsonschema
 import jwt
 
@@ -7,6 +11,35 @@ from api_views.json_schemas import *
 from flask import jsonify, Response, request, json
 from models.user_model import User
 from app import vuln
+
+# SECURITY: per-username login rate limiting (brute-force protection). Every attempt reserves a
+# slot in a short sliding window and successful logins give theirs back, so failed attempts are
+# what accumulates. Over the limit the login is refused with 429 and the same generic message,
+# so the throttling itself does not reveal whether the user exists.
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 1.0
+_login_attempts = defaultdict(deque)
+_login_lock = threading.Lock()
+
+
+def _reserve_login_attempt(username):
+    now = time.monotonic()
+    with _login_lock:
+        attempts = _login_attempts[username]
+        while attempts and now - attempts[0] > LOGIN_WINDOW_SECONDS:
+            attempts.popleft()
+        if len(attempts) >= LOGIN_MAX_ATTEMPTS:
+            return None
+        attempts.append(now)
+        return now
+
+
+def _release_login_attempt(username, attempt):
+    with _login_lock:
+        try:
+            _login_attempts[username].remove(attempt)
+        except ValueError:
+            pass
 
 
 def error_message_helper(msg):
@@ -22,7 +55,9 @@ def get_all_users():
 
 
 def debug():
-    return_value = jsonify({'users': User.get_all_users_debug()})
+    # SECURITY: never expose passwords / admin flags (API3 Excessive Data Exposure).
+    # Return only the same non-sensitive fields as the public user listing.
+    return_value = jsonify({'users': User.get_all_users()})
     return return_value
 
 def me():
@@ -88,9 +123,16 @@ def login_user():
     try:
         # validate the data are in the correct form
         jsonschema.validate(request_data, login_user_schema)
+        # SECURITY: rate-limit login attempts per username (brute-force protection).
+        username = str(request_data.get('username'))
+        attempt = _reserve_login_attempt(username)
+        if attempt is None:
+            return Response(error_message_helper("Username or Password Incorrect!"), 429,
+                            mimetype="application/json")
         # fetching user data if the user exists
         user = User.query.filter_by(username=request_data.get('username')).first()
         if user and request_data.get('password') == user.password:
+            _release_login_attempt(username, attempt)
             auth_token = user.encode_auth_token(user.username)
             responseObject = {
                 'status': 'success',
@@ -191,6 +233,12 @@ def update_password(username):
                 else:
                     return Response(error_message_helper("User Not Found"), 400, mimetype="application/json")
             else:
+                # SECURITY: a user may only change their own password. A request for another
+                # username is refused and nothing is changed (instead of silently changing the
+                # caller's own password).
+                if username != resp['sub']:
+                    return Response(error_message_helper("Unauthorized"), 401,
+                                    mimetype="application/json")
                 user = User.query.filter_by(username=resp['sub']).first()
                 user.password = request_data.get('password')
                 db.session.commit()
