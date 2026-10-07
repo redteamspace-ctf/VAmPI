@@ -2,10 +2,9 @@ import datetime
 import jwt
 from sqlalchemy.orm import relationship
 from config import db, vuln_app
-from app import vuln, alive
+from app import alive
 from models.books_model import Book
 from random import randrange
-from sqlalchemy.sql import text
 
 
 class User(db.Model):
@@ -68,17 +67,7 @@ class User(db.Model):
 
     @staticmethod
     def get_user(username):
-        if vuln:  # SQLi Injection
-            user_query = f"SELECT * FROM users WHERE username = '{username}'"
-            query = db.session.execute(text(user_query))
-            ret = query.fetchone()
-            if ret:
-                fin_query = '{"username": "%s", "email": "%s"}' % (ret[1], ret[3])
-            else:
-                fin_query = None
-        else:
-            fin_query = User.query.filter_by(username=username).first()
-        return fin_query
+        return User.query.filter_by(username=username).first()
 
     @staticmethod
     def register_user(username, password, email, admin=False):
