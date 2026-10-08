@@ -85,47 +85,15 @@ paths:
                         username:
                           type: string
                           example: 'name1'
-  /users/v1/_debug:
-    get:
-      tags:
-        - users
-      summary: Retrieves all details for all users
-      description: Displays all details for all users
-      operationId: api_views.users.debug
-      responses:
-        '200':
-          description: See all details of the users
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  users:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        admin:
-                          type: boolean
-                          example: false
-                        email:
-                          type: string
-                          example: 'mail1@mail.com'
-                        password:
-                          type: string
-                          example: 'pass1'
-                        username:
-                          type: string
-                          example: 'name1'
   /users/v1/register:
     post:
       tags:
         - users
       summary: Register new user
-      description: Register new user
+      description: Register a standard user account. The response does not reveal whether the username already exists.
       operationId: api_views.users.register_user
       requestBody:
-        description: Username of the user
+        description: Public account fields; privilege flags are not accepted.
         content:
           application/json:
             schema:
@@ -133,17 +101,25 @@ paths:
               properties:
                 username:
                   type: string
+                  minLength: 1
+                  maxLength: 128
                   example: 'name1'
                 password:
                   type: string
+                  minLength: 1
+                  maxLength: 128
                   example: 'pass1'
                 email:
                   type: string
+                  minLength: 1
+                  maxLength: 128
                   example: 'user@tempmail.com'
+              required: [username, password, email]
+              additionalProperties: false
         required: true
       responses:
         '200':
-          description: Successfully created user
+          description: Registration request accepted, whether or not the username was available
           content:
             application/json:
               schema:
@@ -151,20 +127,20 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: 'Successfully registered. Login to receive an auth token.'
+                    example: 'If the username is available, the account has been registered.'
                   status:
                     type: string
-                    enum: ['success', 'fail']
+                    enum: ['success']
                     example: 'success'
         '400':
-          description: Invalid request
+          description: Invalid request, including privileged or unknown fields
           content: {}
   /users/v1/login:
     post:
       tags:
         - users
       summary: Login to VAmPI
-      description: Login to VAmPI
+      description: Login to VAmPI. Invalid usernames and passwords receive the same response.
       operationId: api_views.users.login_user
       requestBody:
         description: Username of the user
@@ -179,10 +155,11 @@ paths:
                 password:
                   type: string
                   example: 'pass1'
+              required: [username, password]
         required: true
       responses:
         '200':
-          description: Sucessfully logged in user
+          description: Successfully logged in user
           content:
             application/json:
                 schema:
@@ -196,7 +173,7 @@ paths:
                       example: 'Successfully logged in.'
                     status:
                       type: string
-                      enum: ['success', 'fail']
+                      enum: ['success']
                       example: 'success'
         '400':
           description: Invalid request
@@ -211,7 +188,21 @@ paths:
                     example: 'fail'
                   message:
                     type: string
-                    example: 'Password is not correct for the given username.'
+                    example: 'A valid username and password are required.'
+        '401':
+          description: Invalid username or password
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['fail']
+                    example: 'fail'
+                  message:
+                    type: string
+                    example: 'Invalid username or password.'
   /me:
     get:
         security:
@@ -370,7 +361,7 @@ paths:
       tags:
         - users
       summary: Update users email
-      description: Update a single users email
+      description: Update the authenticated user's email; the path username must match the bearer token subject.
       operationId: api_views.users.update_email
       parameters:
         - name: username
@@ -389,7 +380,9 @@ paths:
               properties:
                 email:
                   type: string
+                  minLength: 1
                   example: 'mail3@mail.com'
+              required: [email]
         required: true
       responses:
         '204':
@@ -423,6 +416,10 @@ paths:
                   message:
                     type: string
                     example: 'Invalid token. Please log in again.'
+        '403':
+          description: The path username does not match the authenticated user
+        '404':
+          description: The authenticated user no longer exists
   /users/v1/{username}/password:
     put:
       security:
@@ -430,7 +427,7 @@ paths:
       tags:
         - users
       summary: Update users password
-      description: Update users password
+      description: Update the authenticated user's password; the path username must match the bearer token subject.
       operationId: api_views.users.update_password
       parameters:
         - name: username
@@ -449,7 +446,9 @@ paths:
               properties:
                 password:
                   type: string
+                  minLength: 1
                   example: 'pass4'
+              required: [password]
         required: true
       responses:
         '204':
@@ -483,6 +482,10 @@ paths:
                   message:
                     type: string
                     example: 'Invalid token. Please log in again.'
+        '403':
+          description: The path username does not match the authenticated user
+        '404':
+          description: The authenticated user no longer exists
   /books/v1:
     get:
       tags:

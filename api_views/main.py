@@ -1,7 +1,7 @@
 from flask import Response
 
-from models.user_model import *
-from app import vuln
+from config import VULNERABLE_MODE as vuln, db
+from models.user_model import User
 
 def populate_db():
     db.drop_all()
