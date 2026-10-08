@@ -1,4 +1,5 @@
 import os
+import secrets
 import connexion
 from flask import jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -9,8 +10,12 @@ vuln_app = connexion.App(__name__, specification_dir='./openapi_specs')
 SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(vuln_app.app.root_path, 'database/database.db')
 vuln_app.app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 vuln_app.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# keep JSON responses indented as they were when the app ran in debug mode
+vuln_app.app.json.compact = False
 
-vuln_app.app.config['SECRET_KEY'] = 'random'
+# JWT signing key: a guessable key lets anyone forge tokens, so use SECRET_KEY from the
+# environment or a random 256-bit key generated at startup
+vuln_app.app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or secrets.token_hex(32)
 # start the db
 db = SQLAlchemy(vuln_app.app)
 
