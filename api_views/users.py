@@ -156,8 +156,8 @@ def update_email(username):
         user = User.query.filter_by(username=resp['sub']).first()
         # Linear-time validation: bounded length and a pattern without nested quantifiers
         email = str(request_data.get('email'))
-        if len(email) <= 254 and re.fullmatch(r'[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+', email):
-            if True:
+        if True:
+            if len(email) <= 254 and re.fullmatch(r'[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+', email):
                 user.email = request_data.get('email')
                 db.session.commit()
                 responseObject = {
