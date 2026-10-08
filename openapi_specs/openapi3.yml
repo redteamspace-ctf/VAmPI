@@ -87,10 +87,12 @@ paths:
                           example: 'name1'
   /users/v1/_debug:
     get:
+      security:
+        - bearerAuth: [ ]
       tags:
         - users
       summary: Retrieves all details for all users
-      description: Displays all details for all users
+      description: Displays all details for all users (Only Admins)
       operationId: api_views.users.debug
       responses:
         '200':
