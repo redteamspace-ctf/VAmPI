@@ -1,9 +1,9 @@
 register_user_schema = {
     "type": "object",
     "properties": {
-        "username": {"type": "string"},
-        "password": {"type": "string"},
-        "email": {"type": "string"}
+        "username": {"type": "string", "minLength": 1, "maxLength": 128},
+        "password": {"type": "string", "minLength": 1, "maxLength": 128},
+        "email": {"type": "string", "minLength": 1, "maxLength": 128}
     },
     "required": ["username", "password", "email"]
 }
