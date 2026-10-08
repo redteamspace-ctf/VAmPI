@@ -45,7 +45,7 @@ class User(db.Model):
     @staticmethod
     def decode_auth_token(auth_token):
         try:
-            payload = jwt.decode(auth_token, vuln_app.app.config.get('SECRET_KEY'), algorithms=["HS256"])
+            payload = jwt.decode(auth_token, vuln_app.app.config.get('SECRET_KEY'), algorithms=["HS256"], options={"require": ["exp", "iat", "sub"]})
             return payload
         except jwt.ExpiredSignatureError:
             return {'error': 'Signature expired. Please log in again.'}
@@ -68,17 +68,8 @@ class User(db.Model):
 
     @staticmethod
     def get_user(username):
-        if vuln:  # SQLi Injection
-            user_query = f"SELECT * FROM users WHERE username = '{username}'"
-            query = db.session.execute(text(user_query))
-            ret = query.fetchone()
-            if ret:
-                fin_query = '{"username": "%s", "email": "%s"}' % (ret[1], ret[3])
-            else:
-                fin_query = None
-        else:
-            fin_query = User.query.filter_by(username=username).first()
-        return fin_query
+        # ORM lookup only: the username is bound as a parameter, never interpolated into SQL
+        return User.query.filter_by(username=str(username)).first()
 
     @staticmethod
     def register_user(username, password, email, admin=False):
