@@ -10,7 +10,10 @@ SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(vuln_app.app.root_path, 'd
 vuln_app.app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 vuln_app.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-vuln_app.app.config['SECRET_KEY'] = 'random'
+import secrets
+# The JWT signing key must never be a hardcoded, guessable value — a weak key
+# lets anyone forge valid tokens. Use an env-provided key or a strong random one.
+vuln_app.app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or secrets.token_hex(32)
 # start the db
 db = SQLAlchemy(vuln_app.app)
 
