@@ -1,4 +1,5 @@
 import os
+import secrets
 import connexion
 from flask import jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -10,7 +11,10 @@ SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(vuln_app.app.root_path, 'd
 vuln_app.app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 vuln_app.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-vuln_app.app.config['SECRET_KEY'] = 'random'
+# JWT signing key: taken from the environment, or a fresh random 256-bit key per process. Never hard-coded.
+vuln_app.app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or secrets.token_urlsafe(32)
+# reject oversized request bodies
+vuln_app.app.config['MAX_CONTENT_LENGTH'] = 16 * 1024
 # start the db
 db = SQLAlchemy(vuln_app.app)
 

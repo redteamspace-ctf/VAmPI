@@ -2,10 +2,13 @@ import datetime
 import jwt
 from sqlalchemy.orm import relationship
 from config import db, vuln_app
-from app import vuln, alive
+from app import alive
 from models.books_model import Book
 from random import randrange
-from sqlalchemy.sql import text
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# compared against when the username doesn't exist, so the response time doesn't reveal valid usernames
+DUMMY_PASSWORD_HASH = generate_password_hash('dummy-password')
 
 
 class User(db.Model):
@@ -21,11 +24,21 @@ class User(db.Model):
     def __init__(self, username, password, email, admin=False):
         self.username = username
         self.email = email
-        self.password = password
+        self.set_password(password)
         self.admin = admin
 
     def __repr__(self):
         return f'{{"username": "{self.username}", "email": "{self.email}"}}'
+
+    def set_password(self, password):
+        self.password = generate_password_hash(password)
+
+    @staticmethod
+    def verify_login(user, password):
+        if not user:
+            check_password_hash(DUMMY_PASSWORD_HASH, str(password))
+            return False
+        return check_password_hash(user.password, str(password))
 
     def encode_auth_token(self, user_id):
         try:
@@ -56,7 +69,7 @@ class User(db.Model):
         return {'username': self.username, 'email': self.email}
 
     def json_debug(self):
-        return {'username': self.username, 'password': self.password, 'email': self.email, 'admin': self.admin}
+        return {'username': self.username, 'email': self.email, 'admin': self.admin}
 
     @staticmethod
     def get_all_users():
@@ -68,22 +81,16 @@ class User(db.Model):
 
     @staticmethod
     def get_user(username):
-        if vuln:  # SQLi Injection
-            user_query = f"SELECT * FROM users WHERE username = '{username}'"
-            query = db.session.execute(text(user_query))
-            ret = query.fetchone()
-            if ret:
-                fin_query = '{"username": "%s", "email": "%s"}' % (ret[1], ret[3])
-            else:
-                fin_query = None
-        else:
-            fin_query = User.query.filter_by(username=username).first()
-        return fin_query
+        # parameterized by the ORM; the username is never part of the SQL text
+        return User.query.filter_by(username=username).first()
 
     @staticmethod
     def register_user(username, password, email, admin=False):
         new_user = User(username=username, password=password, email=email, admin=admin)
         randomint = str(randrange(100))
+        # book titles are unique, so draw again on a collision instead of failing the whole seed
+        while Book.query.filter_by(book_title="bookTitle" + randomint).first():
+            randomint = str(randrange(100))
         new_user.books = [Book(book_title="bookTitle" + randomint, secret_content="secret for bookTitle" + randomint)]
         db.session.add(new_user)
         db.session.commit()

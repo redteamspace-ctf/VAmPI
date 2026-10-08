@@ -6,7 +6,6 @@ from api_views.json_schemas import *
 from flask import jsonify, Response, request, json
 from models.user_model import User
 from models.books_model import Book
-from app import vuln
 
 
 def get_all_books():
@@ -25,9 +24,12 @@ def add_new_book():
         return Response(error_message_helper(resp), 401, mimetype="application/json")
     else:
         user = User.query.filter_by(username=resp['sub']).first()
+        if not user:
+            return Response(error_message_helper("Invalid token. Please log in again."), 401,
+                            mimetype="application/json")
 
-        # check if user already has this book title
-        book = Book.query.filter_by(user=user, book_title=request_data.get('book_title')).first()
+        # book titles are unique across all users, so check every owner (avoids an unhandled IntegrityError)
+        book = Book.query.filter_by(book_title=request_data.get('book_title')).first()
         if book:
             return Response(error_message_helper("Book Already exists!"), 400, mimetype="application/json")
         else:
@@ -47,26 +49,15 @@ def get_by_title(book_title):
     if "error" in resp:
         return Response(error_message_helper(resp), 401, mimetype="application/json")
     else:
-        if vuln:  # Broken Object Level Authorization
-            book = Book.query.filter_by(book_title=str(book_title)).first()
-            if book:
-                responseObject = {
-                    'book_title': book.book_title,
-                    'secret': book.secret_content,
-                    'owner': book.user.username
-                }
-                return Response(json.dumps(responseObject), 200, mimetype="application/json")
-            else:
-                return Response(error_message_helper("Book not found!"), 404, mimetype="application/json")
+        # only the owner may read a book's secret
+        user = User.query.filter_by(username=resp['sub']).first()
+        book = Book.query.filter_by(user=user, book_title=str(book_title)).first() if user else None
+        if book:
+            responseObject = {
+                'book_title': book.book_title,
+                'secret': book.secret_content,
+                'owner': book.user.username
+            }
+            return Response(json.dumps(responseObject), 200, mimetype="application/json")
         else:
-            user = User.query.filter_by(username=resp['sub']).first()
-            book = Book.query.filter_by(user=user, book_title=str(book_title)).first()
-            if book:
-                responseObject = {
-                    'book_title': book.book_title,
-                    'secret': book.secret_content,
-                    'owner': book.user.username
-                }
-                return Response(json.dumps(responseObject), 200, mimetype="application/json")
-            else:
-                return Response(error_message_helper("Book not found!"), 404, mimetype="application/json")
+            return Response(error_message_helper("Book not found!"), 404, mimetype="application/json")
