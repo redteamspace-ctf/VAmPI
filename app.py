@@ -6,8 +6,7 @@ import os
  DO NOTE: some functionalities will still be vulnerable even if the value is set to 0
           as it is a matter of bad practice. Such an example is the debug endpoint.
 '''
-vuln = int(os.getenv('vulnerable', 1))
-# vuln=1
+vuln = 0  # vulnerable behaviour has been removed from the code base
 # token alive for how many seconds?
 alive = int(os.getenv('tokentimetolive', 60))
 
